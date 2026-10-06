@@ -24,8 +24,8 @@ Azure SQL (simulated CRM/LOS, repo `portfolio-wbr-source-data`)
 ## Conventions
 - Folders: staging (`stg_`), intermediate (`int_`), marts (`fct_`, `dim_`)
 - Schemas: `+schema: silver` for staging/intermediate, `+schema: gold` for marts
-- Custom `generate_schema_name`: target `prod` â†’ exact `silver`/`gold`;
-  any other target â†’ `<target.schema>_<custom>` (e.g. `dbt_dev_silver`)
+- Custom `generate_schema_name`: target `prod` → exact `silver`/`gold`;
+  any other target → `<target.schema>_<custom>` (e.g. `dbt_dev_silver`)
 - staging/intermediate materialized as views, marts as tables (incremental later)
 - Use `dbt build` (not `run`) in CI/prod; every model gets at least PK tests
 
