@@ -1,0 +1,53 @@
+﻿version: 2
+
+sources:
+  - name: crm
+    description: >
+      Simulated CRM / loan origination system hosted in Azure SQL and replicated
+      by Fivetran (Change Tracking, daily sync around 08:30 UTC). Bronze layer:
+      never modified by dbt. All timestamps are UTC.
+    database: wbr_raw
+    schema: azure_sql_db_crm
+    config:
+      loaded_at_field: _fivetran_synced
+      freshness:
+        warn_after: {count: 36, period: hour}
+        error_after: {count: 72, period: hour}
+    tables:
+      - name: teams
+        description: Sales teams (7 teams) with their region and covered states.
+        columns:
+          - name: team_id
+            data_tests: [unique, not_null]
+      - name: loan_officers
+        description: >
+          Loan officers, current state only. Team transfers overwrite team_id,
+          so history is rebuilt with a snapshot.
+        columns:
+          - name: lo_id
+            data_tests: [unique, not_null]
+      - name: leads
+        description: One row per lead, including duplicates created by the CRM.
+        columns:
+          - name: lead_id
+            data_tests: [unique, not_null]
+      - name: lead_assignments
+        description: Assignment history of leads to loan officers.
+        columns:
+          - name: assignment_id
+            data_tests: [unique, not_null]
+      - name: lead_stage_events
+        description: Append-only funnel events, with late and double-posted LOS events.
+        columns:
+          - name: event_id
+            data_tests: [unique, not_null]
+      - name: rate_locks
+        description: Rate locks; a lead can have a second lock after the first expired.
+        columns:
+          - name: lock_id
+            data_tests: [unique, not_null]
+      - name: fundings
+        description: Funded loans.
+        columns:
+          - name: funding_id
+            data_tests: [unique, not_null]

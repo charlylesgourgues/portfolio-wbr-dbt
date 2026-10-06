@@ -1,0 +1,95 @@
+﻿version: 2
+
+models:
+  - name: stg_teams
+    description: Teams, typed and trimmed, soft-deleted rows removed.
+    columns:
+      - name: team_id
+        data_tests: [unique, not_null]
+
+  - name: stg_loan_officers
+    description: Loan officers (current state only), emails lowercased.
+    columns:
+      - name: lo_id
+        data_tests: [unique, not_null]
+      - name: team_id
+        data_tests:
+          - relationships: {arguments: {to: ref('stg_teams'), field: team_id}}
+
+  - name: stg_leads
+    description: >
+      Leads with normalized contacts (lowercase trimmed email, digits-only
+      10-digit phone). Duplicate leads are kept; they are resolved in intermediate.
+    columns:
+      - name: lead_id
+        data_tests: [unique, not_null]
+      - name: status
+        data_tests:
+          - accepted_values: {arguments: {values: [open, funded, closed_lost]}}
+      - name: channel
+        data_tests: [not_null]
+      - name: assigned_lo_id
+        data_tests:
+          - relationships: {arguments: {to: ref('stg_loan_officers'), field: lo_id}}
+
+  - name: stg_lead_assignments
+    description: Assignment history, one row per assignment.
+    columns:
+      - name: assignment_id
+        data_tests: [unique, not_null]
+      - name: lead_id
+        data_tests:
+          - not_null
+          - relationships: {arguments: {to: ref('stg_leads'), field: lead_id}}
+      - name: lo_id
+        data_tests:
+          - relationships: {arguments: {to: ref('stg_loan_officers'), field: lo_id}}
+      - name: assignment_reason
+        data_tests:
+          - accepted_values: {arguments: {values: [initial, rebalance, lo_departure]}}
+
+  - name: stg_lead_stage_events
+    description: Raw append-only funnel events (late and double-posted events included).
+    columns:
+      - name: event_id
+        data_tests: [unique, not_null]
+      - name: lead_id
+        data_tests:
+          - not_null
+          - relationships: {arguments: {to: ref('stg_leads'), field: lead_id}}
+      - name: stage
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [lead_created, assigned, pre_approved, rate_locked, funded, closed_lost]
+      - name: source_system
+        data_tests:
+          - accepted_values: {arguments: {values: [crm, los]}}
+
+  - name: stg_rate_locks
+    description: Rate locks, one row per lock (a lead may have two).
+    columns:
+      - name: lock_id
+        data_tests: [unique, not_null]
+      - name: lead_id
+        data_tests:
+          - not_null
+          - relationships: {arguments: {to: ref('stg_leads'), field: lead_id}}
+      - name: status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [active, extended, funded, expired, cancelled]
+
+  - name: stg_fundings
+    description: Funded loans, one row per funding.
+    columns:
+      - name: funding_id
+        data_tests: [unique, not_null]
+      - name: lead_id
+        data_tests:
+          - not_null
+          - relationships: {arguments: {to: ref('stg_leads'), field: lead_id}}
+      - name: lock_id
+        data_tests:
+          - relationships: {arguments: {to: ref('stg_rate_locks'), field: lock_id}}
