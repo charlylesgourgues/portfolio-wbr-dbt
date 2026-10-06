@@ -7,7 +7,7 @@ sources:
       by Fivetran (Change Tracking, daily sync around 08:30 UTC). Bronze layer:
       never modified by dbt. All timestamps are UTC.
     database: wbr_raw
-    schema: azure_sql_crm
+    schema: azure_sql_db_crm
     config:
       loaded_at_field: _fivetran_synced
       freshness:

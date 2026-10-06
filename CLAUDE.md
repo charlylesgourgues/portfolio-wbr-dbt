@@ -1,4 +1,4 @@
-# portfolio-wbr-dbt
+﻿# portfolio-wbr-dbt
 
 dbt Core project (Databricks adapter) that transforms a synthetic US mortgage
 lead funnel into a star schema for a Weekly Business Review (WBR) in Power BI,
@@ -7,11 +7,11 @@ Portfolio project: code, tests and docs must be production-quality and in Englis
 
 ## Architecture
 Azure SQL (simulated CRM/LOS, repo `portfolio-wbr-source-data`)
-  → Fivetran (Change Tracking, daily ~08:30 UTC)
-  → Bronze: `wbr_raw.azure_sql_crm.*`   (written by Fivetran, never modified)
-  → Silver: `wbr_analytics.silver`      (models/staging + models/intermediate)
-  → Gold:   `wbr_analytics.gold`        (models/marts, star schema)
-  → Power BI, then UC metric views + Genie (phase 2)
+  â†’ Fivetran (Change Tracking, daily ~08:30 UTC)
+  â†’ Bronze: `wbr_raw.azure_sql_db_crm.*`   (written by Fivetran, never modified)
+  â†’ Silver: `wbr_analytics.silver`      (models/staging + models/intermediate)
+  â†’ Gold:   `wbr_analytics.gold`        (models/marts, star schema)
+  â†’ Power BI, then UC metric views + Genie (phase 2)
 
 ## Environment
 - Windows 11, PowerShell (no `&&`; use `;` or separate lines), VS Code
@@ -24,17 +24,17 @@ Azure SQL (simulated CRM/LOS, repo `portfolio-wbr-source-data`)
 ## Conventions
 - Folders: staging (`stg_`), intermediate (`int_`), marts (`fct_`, `dim_`)
 - Schemas: `+schema: silver` for staging/intermediate, `+schema: gold` for marts
-- Custom `generate_schema_name`: target `prod` → exact `silver`/`gold`;
-  any other target → `<target.schema>_<custom>` (e.g. `dbt_dev_silver`)
+- Custom `generate_schema_name`: target `prod` â†’ exact `silver`/`gold`;
+  any other target â†’ `<target.schema>_<custom>` (e.g. `dbt_dev_silver`)
 - staging/intermediate materialized as views, marts as tables (incremental later)
 - Use `dbt build` (not `run`) in CI/prod; every model gets at least PK tests
 
-## Source tables (`wbr_raw.azure_sql_crm`), all timestamps UTC
+## Source tables (`wbr_raw.azure_sql_db_crm`), all timestamps UTC
 Fivetran adds `_fivetran_synced` and `_fivetran_deleted` (soft deletes: filter them out in staging).
 - teams(team_id PK, team_name, region, covered_states, updated_at): 7 teams
 - loan_officers(lo_id PK, first_name, last_name, email, team_id, hire_date,
   termination_date, is_active, updated_at): CURRENT STATE ONLY; team transfers
-  overwrite team_id → rebuild history with a dbt snapshot (SCD2)
+  overwrite team_id â†’ rebuild history with a dbt snapshot (SCD2)
 - leads(lead_id PK, created_at, first_name, last_name, email, phone, channel,
   loan_purpose, property_state, property_zip, est_loan_amount, credit_band,
   current_stage, status[open|funded|closed_lost], lost_reason, assigned_lo_id,
@@ -42,8 +42,8 @@ Fivetran adds `_fivetran_synced` and `_fivetran_deleted` (soft deletes: filter t
 - lead_assignments(assignment_id PK, lead_id, lo_id, assigned_at, unassigned_at,
   assignment_reason[initial|rebalance|lo_departure], updated_at)
 - lead_stage_events(event_id PK, lead_id, stage, event_ts, lo_id, source_system[crm|los],
-  recorded_at): append-only; stages lead_created → assigned → pre_approved →
-  rate_locked → funded, plus closed_lost
+  recorded_at): append-only; stages lead_created â†’ assigned â†’ pre_approved â†’
+  rate_locked â†’ funded, plus closed_lost
 - rate_locks(lock_id PK, lead_id, locked_at, lock_period_days, interest_rate,
   loan_amount, expires_at, extension_days, status[active|extended|funded|expired|cancelled], updated_at)
 - fundings(funding_id PK, lead_id, lock_id, funded_at, funded_amount, recorded_at)
@@ -59,10 +59,10 @@ Fivetran adds `_fivetran_synced` and `_fivetran_deleted` (soft deletes: filter t
 - ~30% of dead leads auto-closed after 90 days (lost_reason='stale_auto_closed')
 
 ## Planted stories (WBR commentary + Genie benchmark)
-1. Paid search campaign 2025-05-05 → 2025-06-14: paid_search volume +~70%,
-   pre-approval rate ~13% → ~5%
+1. Paid search campaign 2025-05-05 â†’ 2025-06-14: paid_search volume +~70%,
+   pre-approval rate ~13% â†’ ~5%
 2. Southeast team (team_id 6) crunch Feb 2026: 4 LOs leave, median speed-to-assign
-   ~10 min → ~4 h, assignment rate 91% → 83%, recovers in March
+   ~10 min â†’ ~4 h, assignment rate 91% â†’ 83%, recovers in March
 
 ## Target model (gold)
 - fct_lead_funnel: accumulating snapshot, 1 row per lead, one timestamp per stage,
@@ -72,7 +72,7 @@ Fivetran adds `_fivetran_synced` and `_fivetran_deleted` (soft deletes: filter t
 
 ## Next tasks
 1. dbt_project.yml schema config + macros/generate_schema_name.sql
-2. models/staging/_sources.yml (database wbr_raw, schema azure_sql_crm,
+2. models/staging/_sources.yml (database wbr_raw, schema azure_sql_db_crm,
    freshness on _fivetran_synced) + 7 stg_ models + tests
 3. int_ models (dedup leads and events, lock chains), snapshot on loan_officers
 4. Gold star schema + tests, then GitHub Actions CI (dbt build on a per-PR schema)
