@@ -1,0 +1,30 @@
+﻿name: CI cleanup
+
+# Drop the temporary schemas of a pull request once it is closed (merged or not).
+on:
+  pull_request:
+    types: [closed]
+
+env:
+  DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+  DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+  DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN_DBT_CI }}
+  DBT_CI_SCHEMA: dbt_pr_${{ github.event.pull_request.number }}
+  DBT_PROFILES_DIR: ci
+
+jobs:
+  drop-pr-schemas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Drop schemas dbt_pr_<n>, dbt_pr_<n>_silver, dbt_pr_<n>_gold
+        run: dbt run-operation drop_pr_schemas --target ci
