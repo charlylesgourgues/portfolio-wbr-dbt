@@ -1,4 +1,4 @@
-name: CI cleanup
+﻿name: CI cleanup
 
 # Drop the temporary schemas of a pull request once it is closed (merged or not).
 on:
@@ -8,7 +8,7 @@ on:
 env:
   DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
   DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
-  DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+  DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN_DBT_CI }}
   DBT_CI_SCHEMA: dbt_pr_${{ github.event.pull_request.number }}
   DBT_PROFILES_DIR: ci
 
