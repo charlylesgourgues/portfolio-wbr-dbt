@@ -1,7 +1,10 @@
 # Profile used by GitHub Actions only (`--profiles-dir ci`).
 # Holds no secret: credentials come from environment variables set from GitHub Secrets.
-# DBT_CI_SCHEMA is set per pull request (e.g. dbt_pr_12); generate_schema_name then
-# yields dbt_pr_12_silver / dbt_pr_12_gold, isolated from dev and prod.
+#
+# ci:   DBT_CI_SCHEMA is set per pull request (e.g. dbt_pr_12); generate_schema_name then
+#       yields dbt_pr_12_silver / dbt_pr_12_gold, isolated from dev and prod.
+# prod: every model and snapshot sets a custom schema, so generate_schema_name writes to
+#       the exact `silver` and `gold` schemas; the base schema below is never used.
 wbr_dbt:
   target: ci
   outputs:
@@ -12,4 +15,12 @@ wbr_dbt:
       http_path: "{{ env_var('DATABRICKS_HTTP_PATH') }}"
       token: "{{ env_var('DATABRICKS_TOKEN') }}"
       schema: "{{ env_var('DBT_CI_SCHEMA') }}"
+      threads: 4
+    prod:
+      type: databricks
+      catalog: wbr_analytics
+      host: "{{ env_var('DATABRICKS_HOST') }}"
+      http_path: "{{ env_var('DATABRICKS_HTTP_PATH') }}"
+      token: "{{ env_var('DATABRICKS_TOKEN') }}"
+      schema: default
       threads: 4
