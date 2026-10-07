@@ -1,0 +1,24 @@
+version: 2
+
+snapshots:
+  - name: snap_loan_officers
+    description: >
+      SCD2 history of loan officers, built by snapshotting the current-state source.
+      Source of dim_loan_officer.
+
+      KNOWN LIMITATION: the CRM only keeps the current state (a team transfer overwrites
+      team_id), so history only starts at the first snapshot run. Everything before that
+      date is treated as the loan officer's state on that day: transfers that happened
+      earlier are not reconstructed. Consumers must treat the first version of each
+      loan officer as valid since the beginning of time.
+    relation: ref('stg_loan_officers')
+    config:
+      schema: silver
+      unique_key: lo_id
+      strategy: check
+      check_cols: [team_id, is_active, termination_date]
+    columns:
+      - name: lo_id
+        data_tests: [not_null]
+      - name: dbt_scd_id
+        data_tests: [unique, not_null]
