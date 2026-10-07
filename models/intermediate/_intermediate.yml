@@ -1,0 +1,85 @@
+version: 2
+
+models:
+  - name: int_leads_duplicate_flags
+    description: >
+      One row per lead flagging duplicates (same normalized email or phone as an earlier
+      lead within 72 hours). Duplicates are flagged, not removed, so they can be reported on.
+    columns:
+      - name: lead_id
+        data_tests:
+          - unique
+          - not_null
+          - relationships: {arguments: {to: ref('stg_leads'), field: lead_id}}
+      - name: is_duplicate
+        data_tests: [not_null]
+      - name: original_lead_id
+        description: Root original lead of a duplicate; null for non-duplicates.
+        data_tests:
+          - relationships: {arguments: {to: ref('stg_leads'), field: lead_id}}
+      - name: duplicate_group_id
+        description: Original lead id shared by an original and all of its duplicates.
+        data_tests: [not_null]
+      - name: match_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [email, phone, email_and_phone]
+
+  - name: int_stage_events_deduplicated
+    description: >
+      Funnel events with double-posted events collapsed and only the initial
+      rate_locked event kept, sequenced by event_ts.
+    columns:
+      - name: event_id
+        data_tests: [unique, not_null]
+      - name: lead_id
+        data_tests:
+          - not_null
+          - relationships: {arguments: {to: ref('stg_leads'), field: lead_id}}
+      - name: stage
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [lead_created, assigned, pre_approved, rate_locked, funded, closed_lost]
+      - name: recorded_lag_hours
+        description: Hours between event_ts and recorded_at (late LOS events have a large lag).
+      - name: event_sequence
+        description: Position of the event in the lead's funnel, ordered by event_ts.
+        data_tests: [not_null]
+
+  - name: int_rate_lock_chains
+    description: >
+      One row per rate lock with its position in the lead's lock chain and its
+      comparison to the previous lock.
+    columns:
+      - name: lock_id
+        data_tests:
+          - unique
+          - not_null
+          - relationships: {arguments: {to: ref('stg_rate_locks'), field: lock_id}}
+      - name: lead_id
+        data_tests:
+          - not_null
+          - relationships: {arguments: {to: ref('stg_leads'), field: lead_id}}
+      - name: lock_sequence
+        data_tests: [not_null]
+      - name: previous_lock_id
+        data_tests:
+          - relationships: {arguments: {to: ref('stg_rate_locks'), field: lock_id}}
+
+  - name: int_lead_stage_timestamps
+    description: >
+      One row per lead (duplicates included) with one timestamp per funnel stage.
+      Base of fct_lead_funnel.
+    columns:
+      - name: lead_id
+        data_tests:
+          - unique
+          - not_null
+          - relationships: {arguments: {to: ref('stg_leads'), field: lead_id}}
+      - name: furthest_stage_reached
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [lead_created, assigned, pre_approved, rate_locked, funded]
