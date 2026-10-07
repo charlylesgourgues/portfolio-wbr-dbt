@@ -1,4 +1,4 @@
-﻿# portfolio-wbr-dbt
+# portfolio-wbr-dbt
 
 dbt Core project (Databricks adapter) that transforms a synthetic US mortgage
 lead funnel into a star schema for a Weekly Business Review (WBR) in Power BI,
