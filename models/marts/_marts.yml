@@ -14,9 +14,23 @@ models:
           - not_null
           - relationships: {arguments: {to: ref('stg_leads'), field: lead_id}}
       - name: created_date
-        data_tests: [not_null]
+        data_tests:
+          - not_null
+          - relationships: {arguments: {to: ref('dim_date'), field: date_day}}
       - name: channel
-        data_tests: [not_null]
+        data_tests:
+          - not_null
+          - relationships: {arguments: {to: ref('dim_channel'), field: channel}}
+      - name: loan_purpose
+        data_tests:
+          - relationships: {arguments: {to: ref('dim_loan_product'), field: loan_purpose}}
+      - name: property_state
+        data_tests:
+          - relationships: {arguments: {to: ref('dim_geography'), field: state_code}}
+      - name: assigned_lo_id
+        description: Loan officer assigned to the lead; NULL when the lead was never assigned.
+        data_tests:
+          - relationships: {arguments: {to: ref('dim_loan_officer'), field: lo_id}}
       - name: is_duplicate
         data_tests: [not_null]
       - name: original_lead_id
@@ -37,3 +51,71 @@ models:
         description: Number of rate locks (a re-lock makes it 2); the funnel keeps the initial lock.
       - name: funded_amount
         description: Funded amount; NULL unless the lead is funded.
+
+  - name: dim_date
+    description: >
+      Calendar dimension, one row per day. Weeks run Monday to Sunday (ISO), the grain of
+      the Weekly Business Review.
+    columns:
+      - name: date_key
+        description: Primary key, yyyymmdd.
+        data_tests: [unique, not_null]
+      - name: date_day
+        data_tests: [unique, not_null]
+      - name: week_start_date
+        description: Monday of the week.
+        data_tests: [not_null]
+      - name: week_end_date
+        description: Sunday of the week.
+        data_tests: [not_null]
+
+  - name: dim_channel
+    description: One row per acquisition channel, with a business grouping on top of the CRM value.
+    columns:
+      - name: channel
+        description: Primary key (natural key), original channel value from the CRM.
+        data_tests: [unique, not_null]
+      - name: channel_group
+        data_tests:
+          - not_null
+          - accepted_values: {arguments: {values: [paid, organic, referral]}}
+
+  - name: dim_geography
+    description: One row per US state (DC included) with the sales team and region covering it.
+    columns:
+      - name: state_code
+        description: Primary key (natural key), two-letter state code; each state belongs to exactly one team.
+        data_tests: [unique, not_null]
+      - name: team_id
+        data_tests:
+          - not_null
+          - relationships: {arguments: {to: ref('stg_teams'), field: team_id}}
+
+  - name: dim_loan_product
+    description: One row per loan purpose.
+    columns:
+      - name: loan_purpose
+        description: Primary key (natural key).
+        data_tests:
+          - unique
+          - not_null
+          - accepted_values: {arguments: {values: [purchase, refinance]}}
+
+  - name: dim_loan_officer
+    description: >
+      SCD2 loan officer dimension (one row per version) from snap_loan_officers, plus an
+      Unassigned row. The first version of each loan officer is valid since 1900-01-01:
+      team transfers before the first snapshot run are not reconstructed.
+    columns:
+      - name: loan_officer_key
+        description: Surrogate key of the version (dbt_scd_id).
+        data_tests: [unique, not_null]
+      - name: lo_id
+        description: Natural key; repeated across versions. -1 is the Unassigned row.
+        data_tests: [not_null]
+      - name: valid_from
+        data_tests: [not_null]
+      - name: valid_to
+        data_tests: [not_null]
+      - name: is_current
+        data_tests: [not_null]

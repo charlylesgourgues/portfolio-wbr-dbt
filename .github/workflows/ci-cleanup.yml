@@ -1,4 +1,4 @@
-﻿name: CI cleanup
+name: CI cleanup
 
 # Drop the temporary schemas of a pull request once it is closed (merged or not).
 on:
@@ -25,6 +25,8 @@ jobs:
           cache: pip
 
       - run: pip install -r requirements.txt
+
+      - run: dbt deps
 
       - name: Drop schemas dbt_pr_<n>, dbt_pr_<n>_silver, dbt_pr_<n>_gold
         run: dbt run-operation drop_pr_schemas --target ci
