@@ -1,0 +1,39 @@
+version: 2
+
+models:
+  - name: fct_lead_funnel
+    description: >
+      Accumulating snapshot of the lead funnel: one row per lead (duplicates included
+      and flagged), one timestamp per stage (NULL until reached), stage-to-stage
+      durations and the final status. Filter `not is_duplicate` for real demand.
+    columns:
+      - name: lead_id
+        description: Primary key.
+        data_tests:
+          - unique
+          - not_null
+          - relationships: {arguments: {to: ref('stg_leads'), field: lead_id}}
+      - name: created_date
+        data_tests: [not_null]
+      - name: channel
+        data_tests: [not_null]
+      - name: is_duplicate
+        data_tests: [not_null]
+      - name: original_lead_id
+        description: Original lead of a duplicate; NULL for non-duplicates.
+        data_tests:
+          - relationships: {arguments: {to: ref('fct_lead_funnel'), field: lead_id}}
+      - name: lead_created_at
+        data_tests: [not_null]
+      - name: furthest_stage_reached
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [lead_created, assigned, pre_approved, rate_locked, funded]
+      - name: status
+        data_tests:
+          - accepted_values: {arguments: {values: [open, funded, closed_lost]}}
+      - name: lock_count
+        description: Number of rate locks (a re-lock makes it 2); the funnel keeps the initial lock.
+      - name: funded_amount
+        description: Funded amount; NULL unless the lead is funded.
