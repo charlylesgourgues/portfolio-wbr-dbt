@@ -1,0 +1,61 @@
+name: Deploy
+
+# Build the production schemas (wbr_analytics.silver / gold).
+#   - on every merge to main
+#   - daily at 10:00 UTC, after the Fivetran sync (~08:30 UTC); also refreshes the snapshot
+#   - manually from the Actions tab
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+  schedule:
+    - cron: "0 10 * * *"
+  workflow_dispatch:
+
+# One production build at a time; a run queued behind another waits instead of being cancelled.
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  dbt-build-prod:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: prod
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN_DBT_PROD }}
+      DBT_PROFILES_DIR: ci
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Install dbt packages
+        run: dbt deps
+
+      - name: Check connection
+        run: dbt debug --target prod
+
+      - name: Build models, snapshots and tests in production
+        run: dbt build --target prod
+
+      - name: Generate docs
+        run: dbt docs generate --target prod --no-compile
+
+      - name: Upload dbt artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: dbt-prod-artifacts
+          path: |
+            target/manifest.json
+            target/catalog.json
+            target/run_results.json
+          retention-days: 30
