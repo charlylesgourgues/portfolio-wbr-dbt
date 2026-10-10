@@ -1,0 +1,63 @@
+name: Source freshness
+
+# Check that Fivetran keeps loading Bronze (wbr_raw.azure_sql_db_crm), based on
+# max(_fivetran_synced) per table. Runs daily at 09:30 UTC, before the 10:00 UTC deploy,
+# so a stalled sync is visible before the models are rebuilt on stale data.
+#   - a table past `warn_after` (36h) shows as a warning in the job summary and annotations;
+#   - a table past `error_after` (72h) fails the job, which notifies by email.
+on:
+  schedule:
+    - cron: "30 9 * * *"
+  workflow_dispatch:
+
+jobs:
+  source-freshness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: prod
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN_DBT_PROD }}
+      DBT_PROFILES_DIR: ci
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Install dbt packages
+        run: dbt deps
+
+      - name: Check source freshness
+        run: dbt source freshness --target prod
+
+      - name: Summarize freshness
+        if: always()
+        shell: python
+        run: |
+          import json, os, pathlib
+
+          path = pathlib.Path("target/sources.json")
+          if not path.exists():
+              raise SystemExit("target/sources.json not found: freshness did not run")
+
+          rows = []
+          for result in json.loads(path.read_text())["results"]:
+              table = result["unique_id"].split(".")[-1]
+              status = result["status"]
+              age_hours = result["max_loaded_at_time_ago_in_s"] / 3600
+              rows.append((table, status, age_hours, result["max_loaded_at"]))
+              if status == "warn":
+                  print(f"::warning title=Stale source::{table} last synced {age_hours:.1f}h ago")
+              elif status in ("error", "runtime error"):
+                  print(f"::error title=Stale source::{table} last synced {age_hours:.1f}h ago")
+
+          lines = ["## Source freshness", "", "| Table | Status | Age (h) | Last synced (UTC) |", "|---|---|---|---|"]
+          lines += [f"| {t} | {s} | {a:.1f} | {m} |" for t, s, a, m in sorted(rows)]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              summary.write("\n".join(lines) + "\n")

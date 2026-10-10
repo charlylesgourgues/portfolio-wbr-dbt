@@ -16,6 +16,11 @@ sources:
     tables:
       - name: teams
         description: Sales teams (7 teams) with their region and covered states.
+        config:
+          # Reference table that rarely changes, so _fivetran_synced barely moves and a
+          # freshness check would warn permanently. Pipeline health is covered by the
+          # transactional tables below.
+          freshness: null
         columns:
           - name: team_id
             data_tests: [unique, not_null]
@@ -23,6 +28,9 @@ sources:
         description: >
           Loan officers, current state only. Team transfers overwrite team_id,
           so history is rebuilt with a snapshot.
+        config:
+          # Slow-changing reference table: see the note on `teams`.
+          freshness: null
         columns:
           - name: lo_id
             data_tests: [unique, not_null]
