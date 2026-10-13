@@ -47,10 +47,62 @@ models:
       - name: status
         data_tests:
           - accepted_values: {arguments: {values: [open, funded, closed_lost]}}
+      - name: assigned_date
+        description: Date of the assign stage (cohort date of assign-based metrics); NULL until assigned.
+        data_tests:
+          - relationships: {arguments: {to: ref('dim_date'), field: date_day}}
+      - name: minutes_lead_to_assigned
+        description: Speed-to-assign, in minutes.
+      - name: days_assigned_to_pre_approved
+        description: >
+          Calendar days between the assign and the pre-approval (midnights crossed, not
+          elapsed 24h periods). NULL until pre-approved. A lead converts within a cap of N
+          days when this is `<= N` (inclusive); this is the only place the convention lives.
+        data_tests:
+          - dbt_utils.accepted_range: {arguments: {min_value: 0}}
       - name: lock_count
         description: Number of rate locks (a re-lock makes it 2); the funnel keeps the initial lock.
       - name: funded_amount
         description: Funded amount; NULL unless the lead is funded.
+
+  - name: fct_assign_to_pre_approval
+    description: >
+      Assign -> pre-approval conversion by maturity cap, one row per assigned lead and cap
+      (7/14/21/35/45 days). Cohort = assigned_date; all assigned leads are in the
+      denominator (assign_flag), the numerator is pre_approval_flag (pre-approved within
+      the cap, inclusive, calendar days). Filter to a single maturity_cap_days; recent
+      cohorts are understated until is_mature is true for all their rows.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments: {combination_of_columns: [lead_id, maturity_cap_days]}
+    columns:
+      - name: lead_id
+        data_tests:
+          - not_null
+          - relationships: {arguments: {to: ref('fct_lead_funnel'), field: lead_id}}
+      - name: maturity_cap_days
+        data_tests:
+          - not_null
+          - accepted_values: {arguments: {values: [7, 14, 21, 35, 45], quote: false}}
+      - name: assigned_date
+        data_tests:
+          - not_null
+          - relationships: {arguments: {to: ref('dim_date'), field: date_day}}
+      - name: is_duplicate
+        data_tests: [not_null]
+      - name: is_mature
+        description: True once the day assigned_date + cap has ended (the lead's whole cap window is observed).
+        data_tests: [not_null]
+      - name: assign_flag
+        description: Always 1; sum is the denominator.
+        data_tests:
+          - accepted_values: {arguments: {values: [1], quote: false}}
+      - name: pre_approval_flag
+        description: 1 when pre-approved within the cap; sum is the numerator.
+        data_tests:
+          - accepted_values: {arguments: {values: [0, 1], quote: false}}
+          - dbt_utils.expression_is_true:
+              arguments: {expression: "<= assign_flag"}
 
   - name: dim_date
     description: >
