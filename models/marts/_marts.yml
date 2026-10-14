@@ -65,45 +65,6 @@ models:
       - name: funded_amount
         description: Funded amount; NULL unless the lead is funded.
 
-  - name: fct_assign_to_pre_approval
-    description: >
-      Assign -> pre-approval conversion by maturity cap, one row per assigned lead and cap
-      (7/14/21/35/45 days). Cohort = assigned_date; all assigned leads are in the
-      denominator (assign_flag), the numerator is pre_approval_flag (pre-approved within
-      the cap, inclusive, calendar days). Filter to a single maturity_cap_days; recent
-      cohorts are understated until is_mature is true for all their rows.
-    data_tests:
-      - dbt_utils.unique_combination_of_columns:
-          arguments: {combination_of_columns: [lead_id, maturity_cap_days]}
-    columns:
-      - name: lead_id
-        data_tests:
-          - not_null
-          - relationships: {arguments: {to: ref('fct_lead_funnel'), field: lead_id}}
-      - name: maturity_cap_days
-        data_tests:
-          - not_null
-          - accepted_values: {arguments: {values: [7, 14, 21, 35, 45], quote: false}}
-      - name: assigned_date
-        data_tests:
-          - not_null
-          - relationships: {arguments: {to: ref('dim_date'), field: date_day}}
-      - name: is_duplicate
-        data_tests: [not_null]
-      - name: is_mature
-        description: True once the day assigned_date + cap has ended (the lead's whole cap window is observed).
-        data_tests: [not_null]
-      - name: assign_flag
-        description: Always 1; sum is the denominator.
-        data_tests:
-          - accepted_values: {arguments: {values: [1], quote: false}}
-      - name: pre_approval_flag
-        description: 1 when pre-approved within the cap; sum is the numerator.
-        data_tests:
-          - accepted_values: {arguments: {values: [0, 1], quote: false}}
-          - dbt_utils.expression_is_true:
-              arguments: {expression: "<= assign_flag"}
-
   - name: dim_date
     description: >
       Calendar dimension, one row per day. Weeks run Monday to Sunday (ISO), the grain of
