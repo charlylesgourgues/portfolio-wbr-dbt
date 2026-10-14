@@ -10,6 +10,9 @@
     (assign_to_pre_approval_rate_21d). The caps come from the `maturity_caps_days` var.
     A lead converts within a cap of N days when days_assigned_to_pre_approved <= N
     (calendar days, inclusive, defined once in fct_lead_funnel).
+
+    The uncapped pair (pre_approvals, assign_to_pre_approval_rate) counts any pre-approval,
+    whenever it happened. It is meant for all-time totals, not for comparing periods.
 -#}
 version: 1.1
 comment: >
@@ -65,6 +68,19 @@ measures:
   - name: assigns
     expr: count(1)
     comment: Leads assigned in the period (denominator, independent of the maturity cap).
+  - name: pre_approvals
+    expr: count(1) filter (where is_pre_approved)
+    comment: >
+      Assigned leads pre-approved at any time, with no maturity cap. Not comparable across
+      periods: recent cohorts have had less time to convert. Use the capped measures to
+      compare periods.
+  - name: assign_to_pre_approval_rate
+    expr: try_divide(MEASURE(pre_approvals), MEASURE(assigns))
+    comment: >
+      Uncapped share of assigned leads pre-approved at any time. Understated for recent
+      periods; use assign_to_pre_approval_rate_<N>d to compare periods.
+    format:
+      type: percentage
 {% for cap in var('maturity_caps_days', [7, 14, 21, 35, 45]) %}
   - name: pre_approvals_{{ cap }}d
     expr: count(1) filter (where days_assigned_to_pre_approved <= {{ cap }})
