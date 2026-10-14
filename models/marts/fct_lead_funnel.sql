@@ -46,6 +46,8 @@ select
 
     -- lead attributes (keys to the dimensions)
     cast(leads.created_at as date) as created_date,
+    -- cohort date of the assign-based funnel metrics (NULL until assigned)
+    cast(timestamps.assigned_at as date) as assigned_date,
     leads.channel,
     leads.loan_purpose,
     leads.property_state,
@@ -72,17 +74,21 @@ select
     timestamps.rate_locked_at is not null as is_rate_locked,
     timestamps.funded_at is not null as is_funded,
 
-    -- stage-to-stage durations
+    -- Stage-to-stage durations. Speed-to-assign is in minutes (the Southeast story moves
+    -- from ~10 min to ~4 h); every other duration is in CALENDAR days: the number of
+    -- midnights crossed between the two stages, so 23:00 -> 01:00 next day is 1 day.
+    -- This is the single source of truth for maturity caps ("converted within N days
+    -- = days_* <= N"), so metrics never re-implement the day arithmetic.
     {{ dbt.datediff('timestamps.lead_created_at', 'timestamps.assigned_at', 'second') }} / 60.0
         as minutes_lead_to_assigned,
-    {{ dbt.datediff('timestamps.assigned_at', 'timestamps.pre_approved_at', 'second') }} / 3600.0
-        as hours_assigned_to_pre_approved,
-    {{ dbt.datediff('timestamps.pre_approved_at', 'timestamps.rate_locked_at', 'second') }} / 3600.0
-        as hours_pre_approved_to_rate_locked,
-    {{ dbt.datediff('timestamps.rate_locked_at', 'timestamps.funded_at', 'second') }} / 3600.0
-        as hours_rate_locked_to_funded,
-    {{ dbt.datediff('timestamps.lead_created_at', 'timestamps.funded_at', 'second') }} / 3600.0
-        as hours_lead_to_funded,
+    {{ dbt.datediff('cast(timestamps.assigned_at as date)', 'cast(timestamps.pre_approved_at as date)', 'day') }}
+        as days_assigned_to_pre_approved,
+    {{ dbt.datediff('cast(timestamps.pre_approved_at as date)', 'cast(timestamps.rate_locked_at as date)', 'day') }}
+        as days_pre_approved_to_rate_locked,
+    {{ dbt.datediff('cast(timestamps.rate_locked_at as date)', 'cast(timestamps.funded_at as date)', 'day') }}
+        as days_rate_locked_to_funded,
+    {{ dbt.datediff('cast(timestamps.lead_created_at as date)', 'cast(timestamps.funded_at as date)', 'day') }}
+        as days_lead_to_funded,
 
     -- final outcome
     timestamps.furthest_stage_reached,
